@@ -1,0 +1,404 @@
+---
+title: "Statistically Significant Shakespeare: An Analysis of Text Mining in Conjunction with William Shakespeare’s *Hamlet*: The Mathematical Report"
+author: Johanna Kopecky
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+library(tinytex)
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+  opts_chunk$set(fig.align='center')
+```
+
+```{r}
+library(tidyverse)
+library(gutenbergr)
+library(tm)
+library(dplyr)
+library(tidytext)
+library(ggplot2)
+library(tidyr)
+library(widyr)
+library(stringr)
+library(igraph)
+library(ggraph)
+library(topicmodels)
+library(knitr)
+```
+
+**Abstract**
+
+We apply text mining techniques to William Shakespeare's play, *Hamlet.* The statistical analysis of this literary text provides insight into prevalent themes and correlations that are otherwise non-obvious to readers or playgoers. Using words as variables, we research frequency, emotional connotation, and associations between words. We find that the play has more negative words and phrases, but the positive words are used more frequently and are more prevalent in the characters' speech patterns. The correlations found between words both confirm logical interpretations of the themes and characters as well as offer unique, uncommon findings to suggest alternative ways of reading and analyzing the text.
+
+
+
+\newpage
+
+### Background and Significance
+
+
+The play *Hamlet* was written by William Shakespeare at some point between 1599 and 1601 (Bevington, 2020) and has since been widely considered the greatest play in the English language (Lichtenberg, 2018). *Hamlet* has been performed, researched, and written about extensively for hundreds of years. 
+
+Text mining is a new and rising field of data mining and statistics in which statistical modelling and inferencing techniques are applied to words instead of numbers. Julia Silge, along with David Robinson, has written one of the leading textbooks on text mining in which she demonstrates a variety of text mining methods, explains their function, and offers simple analysis of results. In the textbook's preface, Silge defends the significance of text mining and encourages its teaching, stating, “Analysts are often trained to handle tabular or rectangular data that is mostly numeric, but much of the data proliferating today is unstructured and text-heavy” (Silge, 2017). 
+
+Due to its relative newness, text mining has not been used extensively in practice, however, there are glimpses of its uses appearing in academia. Author Tom Liam Lynch (2014) uses the text mining of word count, sentence count, and sentence length to compare William Shakespeare's *Hamlet* and John Milton's *Paradise Lost* to reach analytical conclusions that, he argues, might only have been obtained through text mining. Lynch continues to say, "We see that calculating numbers can open up new opportunities for reading letters and that what we feel when reading a literary text is perhaps the result of our astute ability as readers to detect humanistic signals from the political noise" (p. 91). 
+
+In this study, we perform text mining techniques on William Shakespeare's most famous play, *Hamlet*, by computing and analyzing word frequencies, word sentiments, and relationships between words. We seek to identify patterns and implications in the work that are unique to text mining results. We explore how words interact with each other and suggest initial thoughts on ways in which these results are indicative to the plots, characters, and themes of the text. 
+
+For a discussion of the literary implications of these findings and close analysis of the results within the text itself, please see my complementary paper "Statistically Significant Shakespeare: An Analysis of Text Mining in Conjunction with William Shakespeare’s *Hamlet*: The Literary Analysis."
+
+
+### Data
+
+
+Our data is the text of William Shakespeare's play, *Hamlet.* The text is downloaded from the website projectgutenberg.org using the gutenbergr package in R. The dataset of the full text contains 5,083 variables where each variable is each word used in the text. Disclaimer messages, stage directions, and name abbreviations that indicate which character speaks which line have been omitted. This research uses two variations of this dataset: the one just described and another which removes the characters' names from within the text so as to make more accurate predictions about the thematic style of the work without being influenced by obvious trends of frequently occurring proper nouns, such as names. These datasets contain 4,478 and 4,456 variables, respectively.
+
+
+### Methods
+
+In this research, analyses of word frequency are conducted by organizing the text in a dataset as one word per line and counting how many times each word appears. Analyses of word sentiments are conducted by using a sentiment algorithm from the tidytext package that categorizes each word as either "positive" or "negative." The more complex and abstract methods of this research are found in the calculation of word correlation and Latent Dirichlet allocation, to be described in the following.
+
+We calculate an exact coefficient for the correlation between two words by considering 10-line blocks of text and calculating the frequency in which words appear together in these blocks of text. We also use the phi coefficient, used commonly in binary correlations such as this where our interest is how frequency words appear relative to when they don't. We perform this calculation with the following table and equation. 
+
+|  | Has word Y | No word Y | Total |  |
+|------------|---------------|---------------|--------------|---|
+| Has word X | $n_{11}$ | $n_{10}$ | $n_{1\cdot}$ |  |
+| No word X | $n_{01}$ | $n_{00}$ | $n_{0\cdot}$ |  |
+| Total | $n_{\cdot 1}$ | $n_{\cdot 0}$ | n |  |
+
+$$\phi=\frac{n_{11}n_{00}-n_{10}n_{01}}{\sqrt{n_{1\cdot}n_{0\cdot}n_{\cdot0}n_{\cdot1}}}$$
+
+As an example of this method, we consider the first ten lines of the famous "to be or not to be" speech, seen below.
+
+ 
+To be, or not to be- that is the question:   
+Whether 'tis nobler in the mind to suffer   
+The slings and arrows of outrageous fortune   
+Or to take arms against a sea of troubles,   
+And by opposing end them. To die- to sleep-   
+No more; and by a sleep to say we end   
+The heartache, and the thousand natural shocks   
+That flesh is heir to. 'Tis a consummation   
+Devoutly to be wish'd. To die- to sleep.   
+To sleep- perchance to dream: ay, there's the rub! (3.1.57-66) 
+ 
+
+We consider the words "die" and "sleep." In this example, we consider each chunk to be only a single line, but the overall analysis determines each chunk is a 10-line block of text. We identify the following: how many lines contain both "die" and "sleep," how many lines contain only "die," how many lines contain only "sleep," and how many lines contain neither "die" nor "sleep." These results and their totals can be seen in the table below. 
+
+|  | Has "Sleep" | No "Sleep" | Total |  |
+|------------|---------------|---------------|--------------|---|
+| Has "Die" | 2 | 0 | 2 |  |
+| No "Die" | 2 | 6 | 8 |  |
+| Total | 4 | 6 | 10 |  |
+  
+We solve the equation for the phi coefficient as follows. 
+
+$$\phi=\frac{2(6)-0(2)}{\sqrt{4*6*2*8}} = 0.6123724$$
+
+Thus within this 10-line example, the words "die" and "sleep" have a correlation coefficient of about 0.61. This was an example to show how the process works, where the ten lines of the speech are representative of the play as a whole and each individual line is representative of a 10-line block of text. In the overall analysis, this method is done on the larger scale of considering the entire work and all possible two-word combinations. 
+
+Latent Dirichlet allocation (LDA) is a popular method of topic modeling in which "documents" are separated into "topics" where each topic is made up of words and their correlations to one another. The number of topics is chosen, but the topics themselves are generated randomly and are not predetermined. In LDA, each document is a mixture of topics and each topic is a mixture of words (Silge, 2017). In order to find the probability that any given word belongs to any given topic, we first calculate the proportion of words in a document that are assigned to the topic, then calculate the proportion of times this word was assigned to this topic (over all documents, if there are multiple), and lastly take the product of these two proportions (Kulshrestha, 2019). That is, firstly, we see how many words in a certain document are associated with a certain topic. In the case of only one document, as opposed to several, all words will be assigned to one or both topics. Secondly, for each word, we calculate the number of times that word occurred out of the total number of words in the topic. If this number is high, then the given word will be more closely associated with the topic. Finally, multiplying these two numbers together produces the probability that a given word belongs to a given topic.
+
+To understand this concept, we consider the following example (inspired by Kulshrestha's photograph example). Suppose you are walking to class in high school and you are carrying around worksheets (documents) that have your written notes (words) on them. You trip and your papers go flying. You need to organize your worksheets into piles of which classes they are for. You separate your papers into k=2 piles for your two classes -- mathematics and English. Initially, you begin by sorting the worksheets that have only mathematics or English notes into their respective categories, and for the ones you are unsure about, you randomly assign them. You notice a lot of the worksheets in your math pile have the word "equation" in the notes, so you conclude that the word "equation" and the topic of mathematics are closely related. Next, you pick up another worksheet in the mathematics pile and see the word "adjective." You look through this pile and see that not many of the worksheets have the word "adjective" on them, so you assume that the word "adjective" doesn't actually fit as well with the math worksheets and instead associate it more with the English worksheets. You then pick up another worksheet from the mathematics pile that has the note "Consider genre and imagery in your analysis." Choosing to focus on the word "analysis," you first calculate the probability that this worksheet ended up in this pile. Other words in this note are "genre" and "imagery" which appear more often in the English pile, so you get a low probability. Next, you calculate the probability that you get the word "analysis" given that this is a math worksheet. Many other worksheets in the math pile have notes about "analysis," so you get a high probability. You multiply these two results together to get the probability of "analysis" belonging in the math pile. The probability is lower than a note with all math-related words because you now see that "analysis" applies to both English and mathematics. Going on in such a way, you will finally find more words that are indicative of one subject or another, adjust which worksheets go in which piles, and hopefully compile all your notes for the correct classes before the bell rings!
+
+Direct application of these methods are displayed in the "results" section of this paper, found below.
+
+### Results and Discussion
+
+```{r}
+full_text <- gutenberg_download(1122)
+
+cleaned_text0 <- full_text[-c(1:279, 1290:1297, 2189:2196, 3313:3320, 3534:3541, 3627:3634, 3930:3937, 3996:3403, 4238:4245, 5145:5152),]
+
+cleaned_text1 <- cleaned_text0
+
+names_full <- c("Denmark", "Elsinore", "Norway", "Claudius", "Marcellus", "Hamlet", "Polonius", "Horatio", "Laertes", "Voltemand", "Cornelius", "Rosencrantz", "Guildenstern", "Osric", "Bernardo", "Francisco", "Reynaldo", "Fortinbras", "Gertrude", "Ophelia")
+names_abrv <- c("Ber", "Fran", "Mar", "Hor", "King", "Queen", "Cor", "Volt", "Laer", "Pol", "Ham", "Oph", "Ghost", "Rey", "Ros", "Guil", "For", "Capt", "Sailor", "Mess", "Clown", "Osr")
+shakes_stop <- c("thee", "thou", "thy", "tis", "Tis", "hath", "hast", "Enter", "twill", "art", "thyself", "ere", "whence", "Exeunt", "twixt", "Exit", "thine", "canst", "o'er", "is't", "on't", "wherefore", "wither", "wilt", "shalt", "shouldst", "wouldst", "nay", "yea", "Ay", "ay", "twere", "thence", "ye", "twas", "prithee", "doth", "th", "hither", "Act", "ACT", "Scene","II", "III", "IV", "V", "VI", "VII", "1")
+
+cleaned_text1$text <- unlist(lapply(cleaned_text1$text, FUN=removeWords, words=names_full))
+cleaned_text1$text <- unlist(lapply(cleaned_text1$text, FUN=removeWords, words=names_abrv))
+cleaned_text1$text <- unlist(lapply(cleaned_text1$text, FUN=removeWords, words=shakes_stop))
+```
+
+First, we are interested in word frequency. Figure 1 displays the most commonly used individual words in *Hamlet.* "Stop words" such as "I," "my," and "the" have been omitted and "Shakespearean stop words" such as "thee," "thou," and "hath" have also been omitted. In this graph, proper nouns such as locations and character names have been omitted. These results are neither surprising nor extremely informative; "lord" and "sir" are common titles used among characters and while "good" and "love" may not seem like common topics of soliloquies in a Shakespearean tragedy, their simplicity is not very telling of deeper themes. 
+
+```{r, include=FALSE}
+tidy_book <- cleaned_text1 %>%
+  mutate(line = row_number()) %>%
+  unnest_tokens(word, text)
+
+tidy_book %>%
+  count(word, sort = TRUE)
+```
+
+```{r, fig.height=4, fig.cap="Word Frequency for Individual Words"}
+tidy_book %>%
+  anti_join(get_stopwords(source = "smart")) %>%
+  count(word, sort = TRUE) %>%
+  top_n(5) %>%
+  ggplot(aes(fct_reorder(word, n), n)) +
+  geom_col() +
+  coord_flip() +
+  xlab("word") +
+  ylab("occurrences")
+```
+
+Next, instead of considering only one word at a time, we transition to considering two words at a time. Figure 2 shows the most commonly used two-word phrases after omitting stop words. These phrases are more indicative of the play as a whole. The prominent theme of death is made clear through the high occurrence of phrases concerning the death of a father, burials, blood, and saying goodbye. While these phrases only occur, at most, four times, they are still significant. Relatively speaking, compared to novels or other plays such as the aforementioned *Paradise Lost*, *Hamlet* is not very long. Additionally, the poetic language of Shakespeare's verse does not often lend itself to repetition of phrases. Thus, an occurrence of a phrase as particular as the ones pictured is significant discovery. 
+
+```{r, include=FALSE}
+tidy_book <- cleaned_text1 %>%
+  mutate(line = row_number()) %>%
+  unnest_tokens(word, text)
+
+tidy_book %>%
+  count(word, sort = TRUE)
+
+ham_bigrams <- cleaned_text1 %>%
+  unnest_tokens(bigram, text, token = "ngrams", n = 2)
+
+ham_bigrams %>%
+  count(bigram, sort = TRUE)
+```
+
+```{r}
+bigrams_separated <- ham_bigrams %>%
+  separate(bigram, c("word1", "word2"), sep = " ")
+
+bigrams_filtered <- bigrams_separated %>%
+  filter(!word1 %in% stop_words$word) %>%
+  filter(!word2 %in% stop_words$word)
+
+bigram_counts <- bigrams_filtered %>% 
+  count(word1, word2, sort = TRUE)
+```
+
+```{r, fig.height=4, fig.cap="Frequency of Two-Word Phrases"}
+tidy_bigram <- ham_bigrams %>%
+  separate(bigram, c("word1", "word2"), sep = " ") %>%
+  filter(!word1 %in% stop_words$word,
+         !word2 %in% stop_words$word) %>%
+  count(word1, word2, sort = TRUE) %>%
+  top_n(10)
+
+tidy_bigram$two_word <- paste(tidy_bigram$word1, " ", tidy_bigram$word2)
+
+tidy_bigram[1:6,] %>% 
+  ggplot(aes(fct_reorder(two_word, n), n)) +
+  geom_col() +
+  coord_flip() +
+  xlab("phrase") +
+  ylab("occurrences")
+
+
+```
+
+Another thing we can consider with text mining is the emotional connotation of the words. Using the "bing" sentiments algorithm, we see *Hamlet* contains 493 negative words and 267 positive words. This algorithm does not take into account neutral words, such as stop words. Negative words make up nearly two-thirds of this play's vocabulary while there are only half as many positive words as negative.  Again, this makes sense intuitively when we consider that this play is a tragedy. However, we can consider word frequency again, this time distinguishing between the most commonly used negative words and the most commonly used positive words. 
+
+Figure 3 shows a side-by-side comparison of the most common negative and positive words. While there may be twice as many unique negative words as positive words, positive words have about triple the amount of usage as negative words in the most common words and about double as frequency decreases. This implies that, despite its makeup of negative vocabulary, the majority of words spoken in *Hamlet* are positive. 
+
+```{r}
+tidy_books <- cleaned_text1 %>%
+  group_by(gutenberg_id) %>%
+  mutate(linenumber = row_number(),
+         chapter = cumsum(str_detect(text, regex("^chapter [\\divxlc]", 
+                                                 ignore_case = TRUE)))) %>%
+  ungroup() %>%
+  unnest_tokens(word, text)
+
+bing_word_counts <- tidy_books %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  ungroup()
+```
+
+```{r, fig.height=4.5, fig.cap="Frequency of Negative Words vs Frequency of Positive Words"}
+bing_word_counts %>%
+  group_by(sentiment) %>%
+  top_n(10) %>%
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(word, n, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(y = "occurrences",
+       x = NULL) +
+  coord_flip()
+```
+
+Yet again, considering only individual words does not prove to be the most thorough approach to obtaining information about a text through text mining. Some words can strongly influence or even change the meaning and connotation of other words if preceding them. The word "not" in front of any word makes the latter word mean its opposite. We consider two-word phrases again. This time, we fix the first word in the phrase to be "not." Figure 4 shows the most common words that follow the word "not." The words are separated into positive and negative groups by color and each word is measured by its "contribution to sentiment" -- its frequency multiplied by the strength of the negative or positive word. This strength is determined by another sentiment algorithm that assigns positive and negative coefficients to positive and negative words, respectively, where the further the coefficient is from zero, the "stronger" the sentiment of the word. Three quarters of the most common words following "not" are negative words, however, negating a negative word implies positivity. "Not guilty" can imply innocence, "not alone" can imply being with company, and so on. The negation of negative words furthers our insight in the relationship of emotion through positivity and negativity in the text of *Hamlet.* We know that numerically, there are more single words in *Hamlet* that are negative, however, Figure 4 implies that many of these single negative instances should be considered positive instances when preceded by the word "not."
+
+```{r, include=FALSE}
+bigrams_separated %>%
+  filter(word1 == "not") %>%
+  count(word1, word2, sort = TRUE)
+
+AFINN <- get_sentiments("afinn")
+
+not_words <- bigrams_separated %>%
+  filter(word1 == "not") %>%
+  inner_join(AFINN, by = c(word2 = "word")) %>%
+  count(word2, value, sort = TRUE)
+```
+
+```{r, fig.height=4, fig.cap="Words Preceded by ‘Not,’ Separated by Sentiment"}
+not_words %>%
+  mutate(contribution = n * value) %>%
+  arrange(desc(abs(contribution))) %>%
+  head(20) %>%
+  mutate(word2 = reorder(word2, contribution)) %>%
+  ggplot(aes(word2, n * value, fill = n * value > 0)) +
+  geom_col(show.legend = FALSE) +
+  xlab("Words preceded by \"not\"") +
+  ylab("Sentiment value * number of occurrences") +
+  coord_flip()
+```
+
+We do not need to limit ourselves to only considering words that occur *next to* each other. We can consider words that appear *near* each other by calculating pairwise correlation. In pairwise correlation, we consider ten lines of text at a time and determine them to be in one chunk. We calculate which words appear in the same 10-line blocks most frequently. We visualize these results by displaying them with nodes (the individual instances), edges (the connection between these instances), and text (how each instance is labelled and distinguished). Figure 5 shows a visualization of the relationship between words that resulted in heavy associations with the others around them. The words that have edges between them appear in the same 10-line block of text at least 15 times. The darker the edge, the stronger the connection between the two words. For example, "eyes" and "soul" are connected by an edge, so they appear in the same 10-line block at least 15 times. There is an edge between "marry" and "farewell" as well, however this edge is darker, meaning that "marry" and "farewell" appear together in a 10-line block more times than "eyes" and "soul." Character names were re-included in this technique to identify association between characters and various adjectives or verbs. 
+
+While some of the individual clusters contain somewhat minimal contributions, such as "play" being associated with "players," there are several interesting results, such as the short though ominous association of "farewell" and "Ophelia." "Rosencrantz" and "Guildenstern" are the most strongly correlated, which makes sense intuitively since they always appear together and are always mentioned together. "Polonius" is correlated with both "Rosencrantz" and "Guildenstern", which is unsuspected due to his few interactions with them. "Earth" is correlated with "heaven," and, by extension, "heart;" both words associated with pleasantness and hopefulness. However, "earth" is also correlated with "dead;" a telling indication of the complicated relationship between the positivity and negativity of life. "Earth's" correlation with both "heaven" and "dead" is also reminiscent of one of the play's most famous moments: the "to be or not to be" speech, in which Hamlet considers the differences and motivations between committing suicide and choosing to stay alive.
+
+```{r}
+full_text <- gutenberg_download(1122)
+
+cleaned_text2 <- full_text[-c(1:279, 1290:1297, 2189:2196, 3313:3320, 3534:3541, 3627:3634, 3930:3937, 3996:3403, 4238:4245, 5145:5152),]
+
+cleaned_text3 <- cleaned_text2
+
+names_abrv <- c("Ber", "Fran", "Mar", "Hor", "King", "Queen", "Cor", "Volt", "Laer", "Pol", "Ham", "Oph", "Ghost", "Rey", "Ros", "Guil", "For", "Capt", "Sailor", "Mess", "Clown", "Osr")
+shakes_stop <- c("thee", "thou", "thy", "tis", "Tis", "hath", "hast", "Enter", "twill", "art", "thyself", "ere", "whence", "Exeunt", "twixt", "Exit", "thine", "canst", "o'er", "is't", "on't", "wherefore", "wither", "wilt", "shalt", "shouldst", "wouldst", "nay", "yea", "Ay", "ay", "twere", "thence", "ye", "twas", "prithee", "doth", "th", "hither", "Act", "ACT", "Scene","II", "III", "IV", "V", "VI", "VII", "1")
+
+cleaned_text3$text <- unlist(lapply(cleaned_text3$text, FUN=removeWords, words=names_abrv))
+cleaned_text3$text <- unlist(lapply(cleaned_text3$text, FUN=removeWords, words=shakes_stop))
+```
+
+```{r, include=FALSE}
+ham_section_words <- cleaned_text3 %>%
+  mutate(section = row_number() %/% 10) %>%
+  filter(section > 0) %>%
+  unnest_tokens(word, text) %>%
+  filter(!word %in% stop_words$word)
+
+word_pairs <- ham_section_words %>%
+  pairwise_count(word, section, sort = TRUE)
+
+word_cors <- ham_section_words %>%
+  group_by(word) %>%
+  filter(n() >= 15) %>%
+  pairwise_cor(word, section, sort = TRUE)
+```
+
+
+```{r, fig.height=5, fig.cap="Common Correlations Between Words, Showing Those that Occurred More Than 15 times and Where Neither Word Was a Stop Word"}
+word_cors %>%
+  filter(correlation > .15) %>%
+  graph_from_data_frame() %>%
+  ggraph(layout = "fr") +
+  geom_edge_link(aes(edge_alpha = correlation), show.legend = FALSE) +
+  geom_node_point(color = "lightblue", size = 5) +
+  geom_node_text(aes(label = name), repel = TRUE) +
+  theme_void()
+```
+
+We can choose specific words and use the aforementioned phi coefficient to learn which words are most strongly correlated with them. We select "death," "Hamlet," "lord," and "love." Figure 6 shows the strongest associated words that appeared with each of these selected words along with their correlation coefficient. The graphs offer several interesting conclusions to one familiar with the text.
+
+"Death," one of the words that has appeared most often in our analysis, is most strongly associated as being a thing of "nature" along with the concept of "time," provoking consideration of what the characters think about the relationship between time and death and how they speak of it. "Death" is also associated with "sword;" a deadly weapon in any case, but a weapon responsible for four of the murders in this play. And again, the theme of "death" and "father" reappears and is reemphasized through this correlation of words not only next to each other, but near each other.
+
+"Hamlet" is associated with his country, "Denmark," and his girlfriend, "Ophelia," and also with his status as a "son." The theme of the death of fathers is coupled with the theme of the relationship between a father and son, made more emphatic through this correlation. While Hamlet's identity as a prince or an avenger may seem more prevalent to the casual observer, these words (though present in the text) are not statistically correlated with Hamlet as much as being a son.
+
+While some of the words correlated with "love" seem a bit random, likely due to its high usage, the character of "Ophelia" herself is associated with "love." "Ophelia" is the only character with a mathematical correlation to "love" this high. While she is the love interest of Hamlet, she is not the only character who loves or is loved. Thus it is significant that she has a strong correlation with "love" while other characters do not. 
+
+```{r, fig.height=4.5, fig.cap="Words That Were Most Correlated with ‘death’, ‘Hamlet’, ‘lord’, and ‘love’"}
+word_cors %>%
+  filter(item1 %in% c("lord", "hamlet", "death", "love")) %>%
+  group_by(item1) %>%
+  top_n(6) %>%
+  ungroup() %>%
+  mutate(item2 = reorder(item2, correlation)) %>%
+  ggplot(aes(item2, correlation)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~ item1, scales = "free") +
+  coord_flip()
+```
+
+Lastly, we can further our findings from the correlation coefficient by fitting a model that utilizes Latent Dirichlet allocation (LDA). We select two topics. Again, since we only consider one document -- *Hamlet* -- all words will be in either or both of the topics. Figure 7 shows the top 10 words with the highest probabilities of being in Topic 1 and Topic 2. 
+
+```{r, include=FALSE}
+rand <- c("now", "may", "let", "shall", "come", "upon", "like", "o")
+cleaned_text3$text <- unlist(lapply(cleaned_text3$text, FUN=removeWords, words=rand))
+```
+
+```{r, include=FALSE}
+hamlet_dtm <- cleaned_text3 %>%
+  unnest_tokens(word, text) %>%
+  count(gutenberg_id, word) %>%
+  anti_join(get_stopwords()) %>%
+  cast_dtm(gutenberg_id, word, n)
+
+ap_lda <- LDA(hamlet_dtm, k = 2, control = list(seed = 1234))
+ap_lda
+
+ap_topics <- tidy(ap_lda, matrix = "beta")
+ap_topics
+
+ap_top_terms <- ap_topics %>%
+  group_by(topic) %>%
+  top_n(10, beta) %>%
+  ungroup() %>%
+  arrange(topic, -beta)
+```
+
+```{r, fig.height=4, fig.cap="Words That Had Highest Correlation with Each Topic"}
+ap_top_terms %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  ggplot(aes(term, beta, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  coord_flip() +
+  scale_x_reordered()
+```
+
+After automatically removing stop words with the "get_stopwords()" function in tidytext, the results for the top words in each topic were "now", "may", "let", "shall", "come", "upon", and "like". While these words are not technically categorized as stop words by the algorithm and thus were not automatically filtered out by the stop words algorithm, they are neither interesting nor indicative to the identification of a topic. Therefore, for this section of the research, the aforementioned words were removed, yielding the current results.
+
+Both topics have "lord" as its strongest correlation, likely due to the high frequency of this word and its versatility to be used in all manners of conversations. The word "well" also appears in both, but is not a particularly compelling word within the text and likely also appears due to its frequency.
+
+The first topic contains the words "father" and "play," which the knowledgeable reader can identify as words that go together in Hamlet's plot to prove his father's murder through the presentation of a play. The words "think" and "speak" also appear, which are similar to each other in their delivery in Shakespeare texts. Due to the connection of the "play within a play scene" and the elements of "thinking" and "speaking," along with the fact that "Hamlet," the protagonist and central avenger of the play, is the second result in this topic, perhaps suggests that the first topic is about plotting, scheming, and revenge. 
+
+The second topic contains some positive words, such as "good" and "love." Both "heaven" and "Horatio" appear, which are reminiscent of one of Hamlet's famous lines: "There are more things in heaven and earth, Horatio, / than are dreamt of in your philosophy" (1.5.167-8). Additionally, the second result of the second topic is "O," an exclamation used often in Shakespearean texts to herald emotion and declaration. These several components in tandem hint at a topic of hope and soliloquies.
+
+
+### Conclusion
+
+We have investigated the relationships between word frequency, word sentiments, and word correlation, viewing William Shakespeare's *Hamlet* through a quantitative lens. The frequency of two-word phrases was a better indicator of the themes of the play than the frequency of individual words, seen in the reemphasis on the theme of dead fathers. The text contains more individual negative words, but the positive words are used more frequently and the majority of the most common negating phrases that start with "not" are negative words, implying positive phrasing. We could argue that, despite being a tragedy with prevalent themes of death and betrayal, *Hamlet* contains themes of optimistic and positive language. Our identification of words that correlate with other words was fruitful in how it numerically and statistically confirms what human scholars can only speculate, such as the relationship between "Ophelia" and "love" and the topics of plotting and hope. These correlation results illustrate how words correlating with other words provide insight into the influential and indicative patterns of language within the play. The evidence for these conclusions obtained through text mining procedures produced interesting results that  would have otherwise not been known without analyzing the text in such a computational manner.
+
+For future work on this project, it would be interesting to run similar analyses on other works -- both works that are different from *Hamlet* and works that are similar -- and compare their results with that of *Hamlet.* LDA is particularly useful and informative when there multiple documents are being considered, however, this research only looked at the text of *Hamlet.* In the future, it would be interesting to apply topic modeling techniques to *Hamlet* along with other works to see if the works are unique enough to be completely separated into their own topics or if the language and writing styles of the work are so similar that LDA is unable to separate them.
+
+While computers cannot analyze, interpret, or literarily apply the data that they give us, the information obtained through text mining a literary work is valuable and unique in its ability to offer factual, statistical information about the language of the work. Our analysis of Shakespeare's *Hamlet* offers new insight to the themes and patterns of one of the most analyzed pieces of writing in the world, all due to the ability to consider the language with a quantitative, statistical approach.
+
+
+\newpage 
+
+### References  
+
+Bevington, D. (April 03, 2020). *Hamlet.* Encyclopædia Britannica. https://www.britannica.com/topic/Hamlet-by-Shakespeare
+
+Kulshrestha, R. (July 19, 2019). *A Beginner’s Guide to Latent Dirichlet Allocation(LDA).* Medium, Towards Data Science. https://towardsdatascience.com/latent-dirichlet-allocation-lda-9d1cd064ffa2
+
+Lichtenberg, D. (2018). *HAMLET: Great Play or the Greatest Play?* Shakespeare Theatre Company. https://www.shakespearetheatre.org/watch-listen/hamlet-great-play-greatest-play/
+
+Lynch, T. L. (September 2014). *Soft(a)ware in the English Classroom: Bards at Bat: The Sport of Quantitative Literary Analysis.* The English Journal. https://www.jstor.org/stable/pdf/24484361.pdf?refreqid=excelsior%3Abad60d47a3249d6c83c89b843af45f47
+
+Robinson, D. (2018). *gutenbergr: Download and Process Public Domain Works from Project Gutenberg.* R package version 0.1.4. https://CRAN.R-project.org/package=gutenbergr
+
+Shakespeare, W. (1599-1601). *Hamlet.* Perfection Learning Cooperation, 2004.
+
+Silge, J. & Robinson, D. (January 2017) *Text Mining in R: A Tidy Approach.* GitHub, 2020. https://www.tidytextmining.com/index.html
+
+Silge, J. & Robinson, D. (2016). *tidytext: Text Mining and Analysis Using Tidy Data Principles in R.”* _JOSS_, *1*(3). doi: 10.21105/joss.00037 (URL: https://doi.org/10.21105/joss.00037), <URL: http://dx.doi.org/10.21105/joss.00037>.
+
+### Acknowledgements
+
+My most profound thanks to my advisor, Professor Andrew Sage, for his instruction, assistance, and encouragement throughout this project and my collegiate education. My acknowledgements, too, to my English advisor, Professor Celia Barnes. My endless gratitude to my doting and supportive family and Nick, and to Mr. Ronald Parker for his essential role in my love for Shakespeare. Above all, my thanks to God, who gives me strength to write papers and passion for both mathematics and Shakespeare. 
+
+"Beggar that I am, I am even poor in thanks; but I thank you." (*Hamlet*, 2.2.277) 
